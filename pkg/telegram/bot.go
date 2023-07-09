@@ -2,18 +2,20 @@ package telegram
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	pocket "github.com/v1lezz/go-pocket-sdk"
+	"github.com/v1lezz/pocket-bot/pkg/repository"
+	pocket "github.com/zhashkevych/go-pocket-sdk"
 	"log"
 )
 
 type Bot struct {
-	bot          *tgbotapi.BotAPI
-	pocketClient *pocket.Client
-	redirectUrl  string
+	bot             *tgbotapi.BotAPI
+	pocketClient    *pocket.Client
+	tokenRepository repository.TokenRepository
+	redirectUrl     string
 }
 
-func NewBot(bot *tgbotapi.BotAPI, client *pocket.Client, redirectUrl string) *Bot {
-	return &Bot{bot: bot, pocketClient: client, redirectUrl: redirectUrl}
+func NewBot(bot *tgbotapi.BotAPI, client *pocket.Client, tr repository.TokenRepository, redirectUrl string) *Bot {
+	return &Bot{bot: bot, pocketClient: client, tokenRepository: tr, redirectUrl: redirectUrl}
 }
 
 func (b *Bot) Start() error {
@@ -24,12 +26,12 @@ func (b *Bot) Start() error {
 		return err
 	}
 
-	b.handleUpdates(updates)
+	err = b.handleUpdates(updates)
 
-	return nil
+	return err
 }
 
-func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
+func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) error {
 	for update := range updates {
 		if update.Message == nil {
 			continue
@@ -41,8 +43,10 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 			}
 			continue
 		}
-		b.handleMessage(update.Message)
+		err := b.handleMessage(update.Message)
+		return err
 	}
+	return nil
 }
 
 func (b *Bot) initUpdatesChannel() (tgbotapi.UpdatesChannel, error) {
