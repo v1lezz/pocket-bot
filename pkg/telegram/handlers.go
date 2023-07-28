@@ -9,9 +9,6 @@ import (
 
 const (
 	commandStart = "start"
-
-	startReplyTemplate     = "Привет! Чтобы сохранить ссылки в своем Pocket аккаунте, для начала тебе необходимо дать мне на это доступ. Для этого перейди по ссылке:\n%s"
-	replyAlreadyAuthorized = "Ты уже авторизирован. Присылай ссылку, я ее сохраню."
 )
 
 func (b *Bot) handleCommand(message *tgbotapi.Message) error {
@@ -25,25 +22,23 @@ func (b *Bot) handleCommand(message *tgbotapi.Message) error {
 }
 
 func (b *Bot) handleMessage(message *tgbotapi.Message) error {
-	msg := tgbotapi.NewMessage(message.Chat.ID, "Ссылка успешно сохранена!")
+
 	_, err := url.ParseRequestURI(message.Text)
 	if err != nil {
-		msg.Text = "Это невалидная ссылка"
+		return errInvalidURL
 	}
-	msg.ReplyToMessageID = message.MessageID
 
 	accessToken, err := b.getAccessToken(message.Chat.ID)
 	if err != nil {
-		msg.Text = "Ты не авторизирован! Используй команду /start"
-		_, err = b.bot.Send(msg)
-		return err
+		return errUnautorized
 	}
 	if err = b.pocketClient.Add(context.Background(), pocket.AddInput{
 		AccessToken: accessToken,
 		URL:         message.Text,
 	}); err != nil {
-		msg.Text = "Увы, не удалось сохранить ссылку. Попробуй еще раз позже."
+		return errUnableToSave
 	}
+	msg := tgbotapi.NewMessage(message.Chat.ID, b.messages.Responses.SavedSuccessfully)
 	_, err = b.bot.Send(msg)
 	return err
 }
@@ -53,13 +48,13 @@ func (b *Bot) handleStartCommand(message *tgbotapi.Message) error {
 	if err != nil {
 		return b.initAutorizationProcess(message)
 	}
-	msg := tgbotapi.NewMessage(message.Chat.ID, replyAlreadyAuthorized)
+	msg := tgbotapi.NewMessage(message.Chat.ID, b.messages.Responses.AlreadyAuthorized)
 	_, err = b.bot.Send(msg)
 	return err
 }
 
 func (b *Bot) handleUnknownCommand(message *tgbotapi.Message) error {
-	msg := tgbotapi.NewMessage(message.Chat.ID, "Я не знаю такой команды :(")
+	msg := tgbotapi.NewMessage(message.Chat.ID, b.messages.Responses.UnknownCommand)
 	_, err := b.bot.Send(msg)
 	return err
 }
